@@ -23,8 +23,8 @@ public class Lookup
     [Column("created_at")]
     public DateTime? CreatedAt { get; set; }
 
-    [Column("is_active")]
-    public bool? IsActive { get; set; }
+    //[Column("is_active")]
+    //public bool? IsActive { get; set; }
 
     [Column("is_deleted")]
     public bool? IsDeleted { get; set; }
