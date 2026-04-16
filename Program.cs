@@ -1,38 +1,59 @@
 using Microsoft.EntityFrameworkCore;
 using VoxTrade.Api.Data;
+using VoxTrade.MarketHubs;
 using VoxTrade.Services.Implementation;
 using VoxTrade.Services.Interface;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.PropertyNamingPolicy =
+            System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 
-// Add services to the container.
+builder.Services.AddSingleton<FinnhubWebSocketService>();
+builder.Services.AddSingleton<MarketSubscriptionService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<FinnhubWebSocketService>());
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("flutter", policy =>
+    {
+        policy
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()
+            .SetIsOriginAllowed(_ => true);
+    });
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<TradingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
-var cs = builder.Configuration.GetConnectionString("Postgres");
-Console.WriteLine(cs);
+
 builder.Services.AddScoped<IRolesRepository, RolesRepository>();
-builder.Services.AddScoped<IUIThemesRepository ,UIThemesRepository>();
+builder.Services.AddScoped<IUIThemesRepository, UIThemesRepository>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+app.UseCors("flutter");
 
+app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<MarketHub>("/hubs/market");
 
 app.Run();
