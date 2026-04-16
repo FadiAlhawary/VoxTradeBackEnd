@@ -23,10 +23,16 @@ public class User
     [Column("username")]
     public string Username { get; set; }
 
+    [NotMapped]
+    public string Email { get; set; }
+
+    [NotMapped]
+    public string PhoneNumber { get; set; }
+
     [Column("role_id")]
     public int? RoleId { get; set; }
 
-    [Column("token")]
+    [NotMapped]
     public string Token { get; set; }
 
     [Column("last_login_date")]
@@ -59,4 +65,6 @@ public class User
     // Navigation Properties
     [ForeignKey("PrimaryCurrencyId")]
     public virtual Currency PrimaryCurrency { get; set; }
+
+    public virtual ContactInfo ContactInfo { get; set; }
 }
