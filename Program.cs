@@ -38,7 +38,6 @@ builder.Services.AddDbContext<TradingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 
 builder.Services.AddScoped<IRolesRepository, RolesRepository>();
-builder.Services.AddScoped<IUIThemesRepository, UIThemesRepository>();
 
 var app = builder.Build();
 

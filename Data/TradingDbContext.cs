@@ -13,7 +13,6 @@ namespace VoxTrade.Api.Data
         // Later you add tables like this:
         // public DbSet<User> Users { get; set; }
         public DbSet<Roles> Roles { get; set; }
-        public DbSet<UIThemes> UIThemes { get; set; }
         public DbSet<Lookup> LookUp { get; set; }
     }
 }
