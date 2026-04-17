@@ -23,9 +23,4 @@ public class Country
     [Column("secondary_language_id")]
     public int? SecondaryLanguageId { get; set; }
 
-    [ForeignKey("PrimaryLanguageId")]
-    public virtual Language PrimaryLanguage { get; set; }
-
-    [ForeignKey("SecondaryLanguageId")]
-    public virtual Language SecondaryLanguage { get; set; }
 }

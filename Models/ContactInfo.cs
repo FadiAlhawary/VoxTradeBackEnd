@@ -46,7 +46,4 @@ public class ContactInfo
 
     [Column("is_deleted")]
     public bool? IsDeleted { get; set; }
-
-    [ForeignKey("UserId")]
-    public virtual User User { get; set; }
 }
