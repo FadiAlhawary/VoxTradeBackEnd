@@ -10,7 +10,7 @@ public class UserRepository : IUserRepository
         _context = context;
     }
 
-    public async Task<User> GetUserByUsernameAsync(string username)
+    public async Task<User?> GetUserByUsernameAsync(string username)
     {
         var user = await _context.Users
             .Include(u => u.ContactInfo)
@@ -18,14 +18,14 @@ public class UserRepository : IUserRepository
 
         if (user != null)
         {
-            user.Email = user.ContactInfo?.PrimaryEmail;
-            user.PhoneNumber = user.ContactInfo?.PrimaryPhoneNumber;
+            user.Email = user.ContactInfo?.PrimaryEmail ?? string.Empty;
+            user.PhoneNumber = user.ContactInfo?.PrimaryPhoneNumber ?? string.Empty;
         }
 
         return user;
     }
 
-    public async Task<User> GetUserByIdAsync(int id)
+    public async Task<User?> GetUserByIdAsync(int id)
     {
         var user = await _context.Users
             .Include(u => u.ContactInfo)
@@ -33,8 +33,8 @@ public class UserRepository : IUserRepository
 
         if (user != null)
         {
-            user.Email = user.ContactInfo?.PrimaryEmail;
-            user.PhoneNumber = user.ContactInfo?.PrimaryPhoneNumber;
+            user.Email = user.ContactInfo?.PrimaryEmail ?? string.Empty;
+            user.PhoneNumber = user.ContactInfo?.PrimaryPhoneNumber ?? string.Empty;
         }
 
         return user;

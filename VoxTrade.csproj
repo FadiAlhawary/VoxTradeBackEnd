@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="VoxTradeBackEnd\**\*.cs" />
     <Folder Include="Models\DTO\" />
   </ItemGroup>
 
