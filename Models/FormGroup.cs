@@ -19,9 +19,4 @@ public class FormGroup
     [Column("role_id")]
     public int? RoleId { get; set; }
 
-    [ForeignKey("FormId")]
-    public virtual UiForm Form { get; set; }
-
-    [ForeignKey("GroupId")]
-    public virtual UiGroup Group { get; set; }
 }

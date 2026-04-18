@@ -26,6 +26,4 @@ public class Currency
     [Column("country_id")]
     public int? CountryId { get; set; }
 
-    [ForeignKey("CountryId")]
-    public virtual Country Country { get; set; }
 }

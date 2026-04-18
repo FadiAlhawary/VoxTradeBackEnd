@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VoxTrade.Api.Data;
+using VoxTrade.Models;
 
 public class UserRepository : IUserRepository
 {

@@ -31,13 +31,4 @@ public class CommandInterpretation
 
     [Column("error_message")]
     public string ErrorMessage { get; set; }
-
-    [ForeignKey("VoiceCommandId")]
-    public virtual VoiceCommand VoiceCommand { get; set; }
-
-    [ForeignKey("InstrumentId")]
-    public virtual Instrument Instrument { get; set; }
-
-    [ForeignKey("CurrencyId")]
-    public virtual Currency Currency { get; set; }
 }

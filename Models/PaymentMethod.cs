@@ -34,7 +34,4 @@ public class PaymentMethod
 
     [Column("status_group")]
     public int? StatusGroup { get; set; }
-
-    [ForeignKey("FormUiId")]
-    public virtual UiForm FormUi { get; set; }
 }

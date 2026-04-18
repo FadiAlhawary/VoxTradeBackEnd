@@ -34,7 +34,4 @@ public class Lookup
 
     [Column("deleted_by")]
     public int? DeletedBy { get; set; }
-
-    [ForeignKey("LookupGroupId")]
-    public virtual LookupGroup LookupGroup { get; set; }
 }

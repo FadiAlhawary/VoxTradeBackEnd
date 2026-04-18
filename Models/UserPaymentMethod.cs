@@ -26,9 +26,4 @@ public class UserPaymentMethod
     [Column("attribute_value_2")]
     public string AttributeValue2 { get; set; }
 
-    [ForeignKey("UserId")]
-    public virtual User User { get; set; }
-
-    [ForeignKey("PaymentMethodId")]
-    public virtual PaymentMethod PaymentMethod { get; set; }
 }

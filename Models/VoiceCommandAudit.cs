@@ -19,7 +19,4 @@ public class VoiceCommandAudit
 
     [Column("created_at")]
     public DateTime? CreatedAt { get; set; }
-
-    [ForeignKey("VoiceCommandId")]
-    public virtual VoiceCommand VoiceCommand { get; set; }
 }

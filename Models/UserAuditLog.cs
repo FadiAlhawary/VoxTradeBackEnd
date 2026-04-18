@@ -25,10 +25,4 @@ public class UserAuditLog
 
     [Column("action")]
     public int? ActionId { get; set; }
-
-    [ForeignKey("UserId")]
-    public virtual User User { get; set; }
-
-    [ForeignKey("ActionId")]
-    public virtual Lookup Action { get; set; }
 }

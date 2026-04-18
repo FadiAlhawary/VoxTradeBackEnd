@@ -40,7 +40,6 @@ builder.Services.AddDbContext<TradingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 
 builder.Services.AddScoped<IRolesRepository, RolesRepository>();
-builder.Services.AddScoped<IUIThemesRepository, UIThemesRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
@@ -92,6 +91,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<MarketHub>("/hubs/market");
