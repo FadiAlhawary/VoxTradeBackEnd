@@ -20,18 +20,7 @@ builder.Services.AddSingleton<MarketSubscriptionService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<FinnhubWebSocketService>());
 
 builder.Services.AddControllers();
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("flutter", policy =>
-    {
-        policy
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials()
-            .SetIsOriginAllowed(_ => true);
-    });
-});
+builder.Services.AddMemoryCache();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -73,14 +62,14 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins("http://localhost:5173", "http://localhost:5174")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
 var app = builder.Build();
 
 app.UseCors("AllowFrontend");
-app.UseCors("flutter");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
