@@ -1,0 +1,123 @@
+[33mcommit b0c8596b1f6bdf67032f4002f7118b720b45b14c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Merge: 01e7399 00abcb5
+Author: Fadi Alhawary <153363495+FadiAlhawary@users.noreply.github.com>
+Date:   Sat Apr 18 14:57:32 2026 +0300
+
+    Merge pull request #2 from FadiAlhawary/user-loginRegister-branch
+    
+    Import full local changes (auth, CORS, backend updates)
+
+[33mcommit 00abcb511b8a84413c09d5f37cad2ded3fa209fd[m[33m ([m[1;31morigin/user-loginRegister-branch[m[33m, [m[1;32muser-loginRegister-branch[m[33m)[m
+Author: Omar Rawas <thefloid69@gmail.com>
+Date:   Sat Apr 18 11:04:12 2026 +0300
+
+    Apply local updates to FinnHub controller and program setup
+
+[33mcommit ea3d5cc74aebf6a61d3f261c0af6be9e324f0424[m
+Merge: 39d7a3b 01e7399
+Author: Omar Rawas <thefloid69@gmail.com>
+Date:   Sat Apr 18 10:56:16 2026 +0300
+
+    Merge origin/master into user-loginRegister-branch and resolve conflicts
+
+[33mcommit 01e7399294bfd0d2182740659c184f12a21687c6[m
+Author: Fadi <fadihawari190@gmail.com>
+Date:   Fri Apr 17 23:42:05 2026 +0300
+
+    solving bug
+
+[33mcommit 4a1da4c741f23509d4d6bcd2c298624698c3c547[m
+Author: Fadi <fadihawari190@gmail.com>
+Date:   Fri Apr 17 23:40:06 2026 +0300
+
+    solving bugs
+
+[33mcommit a8bfd88056c9b34dfe92a52cb998ffc3fdf6fc3d[m
+Author: Fadi <fadihawari190@gmail.com>
+Date:   Fri Apr 17 23:29:33 2026 +0300
+
+    solving error and enhancing models
+
+[33mcommit 9db9b85a9f20a05b4449855fed956b7a76e2ef4f[m
+Author: Abdelrahman Itani <aki042@student.bau.edu.lb>
+Date:   Fri Apr 17 19:06:51 2026 +0300
+
+    3addalet models bas ma ma77et shi
+
+[33mcommit 39d7a3ba633bed43722c46002384cf9566c421d4[m
+Merge: 412c58d 302eb3e
+Author: Omar Rawas <thefloid69@gmail.com>
+Date:   Fri Apr 17 16:39:38 2026 +0300
+
+    Merge origin/master into user-loginRegister-branch: keep JWT auth + add SignalR market hub
+
+[33mcommit 412c58dc1e3ad5d673eefb7fe19ca717c409cde0[m
+Author: Omar Rawas <thefloid69@gmail.com>
+Date:   Fri Apr 17 16:27:19 2026 +0300
+
+    Fix duplicate source tree: exclude inner folder from build, migrate git to outer folder
+
+[33mcommit 302eb3e1d8c159a9d1443ad38a4f720e6393829f[m
+Author: Fadi <fadihawari190@gmail.com>
+Date:   Fri Apr 17 02:33:29 2026 +0300
+
+    added market hub
+
+[33mcommit 50942f31f7ef8a27a057358a9dff8f3b7d62cd4d[m
+Author: Omar Rawas <thefloid69@gmail.com>
+Date:   Thu Apr 16 18:03:12 2026 +0300
+
+    Import full local changes (auth, CORS, backend updates)
+
+[33mcommit 816662f45f36bfb280673f51cd5456be1b6d562a[m
+Author: Omar-Rawas <163649661+Omar-Rawas@users.noreply.github.com>
+Date:   Mon Feb 23 20:27:53 2026 +0200
+
+    finnhub endpoints addition
+    
+    added all free endpoints from finnhub Added a helper method for API calls to reduce code duplication.
+
+[33mcommit 9ed35e5a54a5aac78469d1fb1c9153bf670b7b77[m
+Author: Fadi Al Hawary <f.alhawary@ids-fintech.com>
+Date:   Fri Feb 20 13:13:39 2026 +0200
+
+    Added FinnHub controller
+
+[33mcommit e4fd238bf410ca40dadb8f5fa7a36eb056c7bbae[m
+Merge: b9769fe eb042c9
+Author: Fadi Alhawary <153363495+FadiAlhawary@users.noreply.github.com>
+Date:   Sun Jan 18 21:26:11 2026 +0200
+
+    Merge pull request #1 from FadiAlhawary/model-making
+    
+    models done for backend
+
+[33mcommit eb042c9399ee577c86178da6b18f3eda7f01b6bd[m[33m ([m[1;31morigin/model-making[m[33m, [m[1;32mmodel-making[m[33m)[m
+Author: Fadi <fadihawari190@gmail.com>
+Date:   Sun Jan 18 21:25:10 2026 +0200
+
+     removed is_active from lookup model , and register it in the conext
+
+[33mcommit d56bdb933aed84837afd3f4c56445e2e641cf608[m
+Author: Abdelrahman Itani <aki042@student.bau.edu.lb>
+Date:   Sun Jan 18 21:08:27 2026 +0200
+
+    models done for backend
+
+[33mcommit b9769fe1d806e076fb63650df0328bd20d3c57cc[m
+Author: Fadi <fadihawari190@gmail.com>
+Date:   Thu Jan 15 19:55:23 2026 +0200
+
+    initial
+
+[33mcommit 7a0b4536d9f60598f79fbd7fdcb727e7e3f99193[m
+Author: Fadi <fadihawari190@gmail.com>
+Date:   Wed Jan 14 22:55:45 2026 +0200
+
+    Add project files.
+
+[33mcommit 33193e09e4442dcb249b3c87f7a3d9b87979b7a1[m
+Author: Fadi <fadihawari190@gmail.com>
+Date:   Wed Jan 14 22:55:43 2026 +0200
+
+    Add .gitattributes, .gitignore, and README.md.
