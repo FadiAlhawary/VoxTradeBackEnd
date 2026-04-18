@@ -1,14 +1,19 @@
+using Dapper;
 using Microsoft.EntityFrameworkCore;
 using VoxTrade.Api.Data;
 using VoxTrade.Models;
+using VoxTrade.Models.Auth;
+using VoxTrade.Models.DTO;
 
 public class UserRepository : IUserRepository
 {
     private readonly TradingDbContext _context;
+    private readonly ILogger<UserRepository> _logger;
 
-    public UserRepository(TradingDbContext context)
+    public UserRepository(TradingDbContext context , ILogger<UserRepository> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<User?> GetUserByUsernameAsync(string username)
@@ -117,5 +122,49 @@ public class UserRepository : IUserRepository
     public async Task<bool> UserExistsByEmailAsync(string email)
     {
         return await _context.ContactInfo.AnyAsync(ci => ci.PrimaryEmail == email && (ci.IsDeleted == null || ci.IsDeleted == false));
+    }
+    public async Task<UserDTO?> GetUserProfileById(int userId)
+    {
+        try
+        {
+            const string sql = """
+            SELECT
+                u.id,
+                u.first_name_en AS FirstNameEn,
+                u.last_name_en AS LastNameEn,
+                u.username,
+                u.dob,
+                ci.primary_email AS PrimaryEmail,
+                ci.alt_email AS AltEmail,
+                ci.primary_phone_number AS PrimaryPhoneNumber,
+                ci.alt_phone_number AS AltPhoneNumber,
+                COALESCE(ci.is_primary_email_active, false) AS IsPrimaryEmailActive,
+                COALESCE(ci.is_alt_email_active, false) AS IsAltEmailActive,
+                COALESCE(ci.is_primary_phone_number_active, false) AS IsPrimaryPhoneNumberActive,
+                COALESCE(ci.is_alt_phone_number_active, false) AS IsAltPhoneNumberActive
+            FROM public.users u
+            LEFT JOIN public.contact_info ci
+                ON ci.user_id = u.id
+               AND COALESCE(ci.is_deleted, false) = false
+            WHERE u.id = @UserId
+              AND COALESCE(u.is_deleted, false) = false;
+            """;
+
+            var connection = _context.Database.GetDbConnection();
+
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync<UserDTO>(
+                sql,
+                new { UserId = userId });
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get user profile for user id {UserId}", userId);
+            throw;
+        }
     }
 }

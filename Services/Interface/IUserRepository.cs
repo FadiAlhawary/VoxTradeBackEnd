@@ -1,4 +1,5 @@
 using VoxTrade.Models;
+using VoxTrade.Models.DTO;
 
 public interface IUserRepository
 {
@@ -8,4 +9,5 @@ public interface IUserRepository
     Task<User> UpdateUserAsync(User user);
     Task<bool> UserExistsByUsernameAsync(string username);
     Task<bool> UserExistsByEmailAsync(string email);
+    Task<UserDTO?> GetUserProfileById(int userId);
 }

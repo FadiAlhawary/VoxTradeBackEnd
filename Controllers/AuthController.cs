@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using VoxTrade.Models;
 using VoxTrade.Models.Auth;
+using VoxTrade.Models.DTO;
 using VoxTrade.Services.Interface;
 
 namespace VoxTrade.Controllers;
@@ -89,21 +90,15 @@ public class AuthController : ControllerBase
             
             // Update token in database
             await _userRepository.UpdateUserAsync(createdUser);
+            UserDTO userDTO = new UserDTO();
 
+            userDTO = await _userRepository.GetUserProfileById(user.Id);
             return Ok(new AuthResponse
             {
                 Success = true,
                 Message = "Registration successful",
                 Token = token,
-                User = new UserDto
-                {
-                    Id = createdUser.Id,
-                    Username = createdUser.Username,
-                    FirstNameEn = createdUser.FirstNameEn,
-                    LastNameEn = createdUser.LastNameEn,
-                    Email = createdUser.Email,
-                    Dob = createdUser.Dob
-                }
+                User = userDTO
             });
         }
         catch (Exception ex)
@@ -156,20 +151,16 @@ public class AuthController : ControllerBase
             // Update user in database
             await _userRepository.UpdateUserAsync(user);
 
+            UserDTO userDTO = new UserDTO();
+
+            userDTO =await _userRepository.GetUserProfileById(user.Id);
+
             return Ok(new AuthResponse
             {
                 Success = true,
                 Message = "Login successful",
                 Token = token,
-                User = new UserDto
-                {
-                    Id = user.Id,
-                    Username = user.Username,
-                    FirstNameEn = user.FirstNameEn,
-                    LastNameEn = user.LastNameEn,
-                    Email = user.Email,
-                    Dob = user.Dob
-                }
+                User = userDTO
             });
         }
         catch (Exception ex)

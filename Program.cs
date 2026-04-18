@@ -1,6 +1,7 @@
+using System.Text;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using VoxTrade.Api.Data;
 using VoxTrade.MarketHubs;
 using VoxTrade.Services.Implementation;
@@ -18,6 +19,8 @@ builder.Services.AddSignalR()
 builder.Services.AddSingleton<FinnhubWebSocketService>();
 builder.Services.AddSingleton<MarketSubscriptionService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<FinnhubWebSocketService>());
+builder.Services.AddScoped<VoxTrade.Data.IDbConnectionFactory, VoxTrade.Data.DbConnectionFactory>();
+builder.Services.AddScoped<IInstrumentRepository, InstrumentRepository>();
 
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
@@ -31,6 +34,7 @@ builder.Services.AddDbContext<TradingDbContext>(options =>
 builder.Services.AddScoped<IRolesRepository, RolesRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IHistoryRepository, HistoryRepository>();
 
 // Add JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "your-256-bit-secret-key-that-is-very-long-and-secure";
