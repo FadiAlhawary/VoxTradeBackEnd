@@ -172,4 +172,56 @@ public class AuthController : ControllerBase
             });
         }
     }
+
+    [HttpPut("backup-email")]
+    public async Task<IActionResult> UpdateBackupEmail([FromBody] UpdateBackupEmailRequest request)
+    {
+        if (request.UserId <= 0)
+        {
+            return BadRequest(new { success = false, message = "Valid user id is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.BackupEmail) || !request.BackupEmail.Contains("@"))
+        {
+            return BadRequest(new { success = false, message = "Valid backup email is required." });
+        }
+
+        var user = await _userRepository.GetUserByIdAsync(request.UserId);
+        if (user == null)
+        {
+            return NotFound(new { success = false, message = "User not found." });
+        }
+
+        await _userRepository.UpdateBackupEmailAsync(request.UserId, request.BackupEmail.Trim());
+        return Ok(new { success = true, message = "Backup email updated successfully." });
+    }
+
+    [HttpPut("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        if (request.UserId <= 0)
+        {
+            return BadRequest(new { success = false, message = "Valid user id is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 8)
+        {
+            return BadRequest(new { success = false, message = "Password must be at least 8 characters long." });
+        }
+
+        var user = await _userRepository.GetUserByIdAsync(request.UserId);
+        if (user == null)
+        {
+            return NotFound(new { success = false, message = "User not found." });
+        }
+
+        var hashedPassword = _authService.HashPassword(request.NewPassword);
+        var updated = await _userRepository.UpdatePasswordHashAsync(request.UserId, hashedPassword);
+        if (!updated)
+        {
+            return StatusCode(500, new { success = false, message = "Could not update password." });
+        }
+
+        return Ok(new { success = true, message = "Password updated successfully." });
+    }
 }

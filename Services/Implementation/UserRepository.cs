@@ -167,4 +167,46 @@ public class UserRepository : IUserRepository
             throw;
         }
     }
+
+    public async Task<bool> UpdateBackupEmailAsync(int userId, string backupEmail)
+    {
+        var contactInfo = await _context.ContactInfo
+            .FirstOrDefaultAsync(ci => ci.UserId == userId && (ci.IsDeleted == null || ci.IsDeleted == false));
+
+        if (contactInfo == null)
+        {
+            _context.ContactInfo.Add(new ContactInfo
+            {
+                UserId = userId,
+                AltEmail = backupEmail,
+                IsAltEmailActive = true,
+                CreatedAt = DateTime.UtcNow,
+                IsDeleted = false,
+            });
+        }
+        else
+        {
+            contactInfo.AltEmail = backupEmail;
+            contactInfo.IsAltEmailActive = true;
+            _context.ContactInfo.Update(contactInfo);
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> UpdatePasswordHashAsync(int userId, string passwordHash)
+    {
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && (!u.IsDeleted.HasValue || !u.IsDeleted.Value));
+
+        if (user == null)
+        {
+            return false;
+        }
+
+        user.Password = passwordHash;
+        await _context.SaveChangesAsync();
+        return true;
+    }
 }
