@@ -17,5 +17,6 @@ namespace VoxTrade.Api.Data
         public DbSet<Roles> Roles { get; set; }
         public DbSet<Lookup> LookUp { get; set; }
         public DbSet<Currency> Currencies { get; set; }
+        public DbSet<UIThemes> UIThemes { get; set; }
     }
 }
