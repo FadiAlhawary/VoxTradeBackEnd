@@ -46,6 +46,57 @@ public class AuthController : ControllerBase
                     Message = "Username and password are required" 
                 });
 
+            // Username requirements: 3–20 chars, letters/digits/underscores only, must start with a letter
+            if (request.Username.Length < 3 || request.Username.Length > 20)
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Username must be between 3 and 20 characters" 
+                });
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Username, @"^[a-zA-Z][a-zA-Z0-9_]*$"))
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Username must start with a letter and contain only letters, digits, or underscores" 
+                });
+
+            // Password requirements: min 8 chars, at least one uppercase, one lowercase, one digit, one special char
+            if (request.Password.Length < 8)
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Password must be at least 8 characters long" 
+                });
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[A-Z]"))
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Password must contain at least one uppercase letter" 
+                });
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[a-z]"))
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Password must contain at least one lowercase letter" 
+                });
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[0-9]"))
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Password must contain at least one digit" 
+                });
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[^a-zA-Z0-9]"))
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Password must contain at least one special character" 
+                });
+
             if (string.IsNullOrWhiteSpace(request.Email))
                 return BadRequest(new AuthResponse 
                 { 
@@ -251,7 +302,24 @@ public class AuthController : ControllerBase
         if (user != null)
         {
             var token = _authService.GeneratePasswordResetToken(user);
-            var frontendBaseUrl = _configuration["Frontend:BaseUrl"] ?? "http://localhost:5173";
+            
+            // Determine frontend URL: prefer Origin header (for tunnel URLs), fall back to config
+            string frontendBaseUrl;
+            if (Request.Headers.TryGetValue("Origin", out var origin) && !string.IsNullOrEmpty(origin))
+            {
+                frontendBaseUrl = origin.ToString();
+            }
+            else if (Request.Headers.TryGetValue("Referer", out var referer) && !string.IsNullOrEmpty(referer))
+            {
+                // Extract base URL from Referer (e.g., "https://example.com/path" -> "https://example.com")
+                var refererUri = new Uri(referer.ToString());
+                frontendBaseUrl = $"{refererUri.Scheme}://{refererUri.Host}{(refererUri.IsDefaultPort ? "" : $":{refererUri.Port}")}";
+            }
+            else
+            {
+                frontendBaseUrl = _configuration["Frontend:BaseUrl"] ?? "http://localhost:5173";
+            }
+            
             var resetLink = $"{frontendBaseUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(token)}";
 
             try
