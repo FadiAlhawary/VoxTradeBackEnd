@@ -34,6 +34,7 @@ namespace VoxTrade.Services.Implementation
                 i.tick_size AS TickSize,
                 i.min_quantity AS MinQuantity,
                 i.instrument_type AS InstrumentTypeId,
+                i.short_name,
                 lt.code AS InstrumentType,
                 i.status AS StatusId,
                 ls.code AS Status
