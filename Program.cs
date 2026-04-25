@@ -22,6 +22,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<FinnhubWebSocketSe
 builder.Services.AddScoped<VoxTrade.Data.IDbConnectionFactory, VoxTrade.Data.DbConnectionFactory>();
 builder.Services.AddScoped<IInstrumentRepository, InstrumentRepository>();
 builder.Services.AddScoped<IWalletRepo, WalletRepo>();
+builder.Services.AddScoped<IMarketRepository, MarketRepository>();
+
 
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
