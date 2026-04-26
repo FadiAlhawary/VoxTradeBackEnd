@@ -165,6 +165,54 @@ namespace VoxTrade.Services.Implementation
                 throw;
             }
         }
+        public async Task<List<WalletHistoryDto>> GetWalletHistoryWithDate(
+    int userId,
+    DateTime? from = null,
+    DateTime? to = null)
+        {
+            try
+            {
+                const string sql = """
+            SELECT
+                wh.id,
+                wh.wallet_id AS WalletId,
+                wh.user_id AS UserId,
+                wh.order_id AS OrderId,
+                wh.trade_id AS TradeId,
+                wh.transaction_type AS TransactionType,
+                wh.amount,
+                wh.balance_before AS BalanceBefore,
+                wh.balance_after AS BalanceAfter,
+                wh.description,
+                wh.created_at AS CreatedAt
+            FROM public.wallet_history wh
+            WHERE wh.user_id = @UserId
+              AND (@From IS NULL OR wh.created_at >= @From)
+              AND (@To IS NULL OR wh.created_at <= @To)
+            ORDER BY wh.created_at DESC;
+            """;
+
+                var connection = _context.Database.GetDbConnection();
+                if (connection.State != ConnectionState.Open)
+                    await connection.OpenAsync();
+
+                var result = await connection.QueryAsync<WalletHistoryDto>(
+                    sql,
+                    new
+                    {
+                        UserId = userId,
+                        From = from,
+                        To = to
+                    });
+
+                return result.ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get wallet history for user {UserId}", userId);
+                throw;
+            }
+        }
 
         public async Task<bool> CancelPendingOrder(int userId, int orderId)
         {

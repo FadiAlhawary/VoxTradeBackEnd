@@ -23,6 +23,7 @@ builder.Services.AddScoped<VoxTrade.Data.IDbConnectionFactory, VoxTrade.Data.DbC
 builder.Services.AddScoped<IInstrumentRepository, InstrumentRepository>();
 builder.Services.AddScoped<IWalletRepo, WalletRepo>();
 builder.Services.AddScoped<IMarketRepository, MarketRepository>();
+builder.Services.AddScoped<IPortfolioRepository, PortfolioRepository>();
 
 
 builder.Services.AddControllers();

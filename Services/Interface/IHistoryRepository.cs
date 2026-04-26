@@ -13,5 +13,9 @@ namespace VoxTrade.Services.Interface
         Task<List<LookupItemDto>> GetOrderStatuses();
         Task<List<LookupItemDto>> GetOrderTypes();
         Task<List<LookupItemDto>> GetOrderActions();
+        Task<List<WalletHistoryDto>> GetWalletHistoryWithDate(
+    int userId,
+    DateTime? from = null,
+    DateTime? to = null);
     }
 }
