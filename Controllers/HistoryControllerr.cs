@@ -55,8 +55,14 @@ namespace VoxTrade.Controllers
             {
                 var cancelled = await _historyRepository.CancelPendingOrder(userId, orderId);
 
-                if (!cancelled)
-                    return BadRequest("Order cannot be cancelled. It may already be executed, partially filled, cancelled, or not belong to this user.");
+                if (!cancelled.Success)
+                {
+                    return Ok(new
+                    {
+                        success = false,
+                        message = "Order cannot be cancelled. It may already be executed, partially filled, cancelled, or not belong to this user."
+                    });
+                }
 
                 return Ok(new
                 {
