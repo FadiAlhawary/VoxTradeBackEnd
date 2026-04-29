@@ -8,10 +8,14 @@ namespace VoxTrade.Services.Interface
         Task<List<TradeHistoryDto>> GetTradeHistory(int userId);
         Task<List<WalletHistoryDto>> GetWalletHistory(int userId);
 
-        Task<bool> CancelPendingOrder(int userId, int orderId);
+        Task<CancelOrderResponseDto> CancelPendingOrder(int userId, int orderId);
 
         Task<List<LookupItemDto>> GetOrderStatuses();
         Task<List<LookupItemDto>> GetOrderTypes();
         Task<List<LookupItemDto>> GetOrderActions();
+        Task<List<WalletHistoryDto>> GetWalletHistoryWithDate(
+    int userId,
+    DateTime? from = null,
+    DateTime? to = null);
     }
 }

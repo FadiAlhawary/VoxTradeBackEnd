@@ -3,6 +3,8 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR;
 using VoxTrade.Models.DTO;
+using Dapper;
+using Npgsql;
 
 namespace VoxTrade.MarketHubs
 {
@@ -18,17 +20,49 @@ namespace VoxTrade.MarketHubs
 
         private ClientWebSocket? _socket;
         private readonly SemaphoreSlim _sendLock = new(1, 1);
+        private readonly string _connectionString;
 
         public FinnhubWebSocketService(
-            IConfiguration configuration,
-            IHubContext<MarketHub> hubContext,
-            ILogger<FinnhubWebSocketService> logger)
+       IConfiguration configuration,
+       IHubContext<MarketHub> hubContext,
+       ILogger<FinnhubWebSocketService> logger)
         {
             _configuration = configuration;
             _hubContext = hubContext;
             _logger = logger;
-        }
 
+            _connectionString = configuration.GetConnectionString("Postgres")
+                ?? throw new InvalidOperationException("DefaultConnection missing.");
+        }
+        private async Task UpsertMarketQuoteAsync(MarketTickDto dto, CancellationToken ct)
+        {
+            const string sql = """
+        SELECT public.upsert_market_quote(
+            i.id,
+            NULL,
+            NULL,
+            @LastTradePrice,
+            'finnhub'
+        )
+        FROM public.instruments i
+        WHERE UPPER(i.symbol) = UPPER(@Symbol)
+          AND COALESCE(i.is_deleted, false) = false;
+    """;
+
+            await using var connection = new NpgsqlConnection(_connectionString);
+
+            await connection.ExecuteAsync(
+                new CommandDefinition(
+                    sql,
+                    new
+                    {
+                        Symbol = dto.Symbol,
+                        LastTradePrice = dto.Price
+                    },
+                    cancellationToken: ct
+                )
+            );
+        }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
@@ -61,7 +95,6 @@ namespace VoxTrade.MarketHubs
             _logger.LogInformation("Connected to Finnhub websocket.");
             Console.WriteLine("Connected to Finnhub");
 
-            // 🔥 re-subscribe everything after reconnect
             List<string> symbols;
             lock (_lock)
             {
@@ -181,6 +214,8 @@ namespace VoxTrade.MarketHubs
                         ? c.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
                         : Array.Empty<string>()
                 };
+
+                await UpsertMarketQuoteAsync(dto, ct);
 
                 await _hubContext.Clients
                     .Group(GroupNames.ForSymbol(dto.Symbol))

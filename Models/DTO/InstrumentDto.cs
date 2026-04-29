@@ -1,4 +1,6 @@
-﻿namespace VoxTrade.Models.DTO
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace VoxTrade.Models.DTO
 {
     public class InstrumentDto
     {
@@ -13,5 +15,6 @@
 
         public int? StatusId { get; set; }
         public string? Status { get; set; }
+        public string short_name { get; set; }
     }
 }
