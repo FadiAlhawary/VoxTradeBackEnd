@@ -18,5 +18,6 @@ namespace VoxTrade.Models
         public int? InstrumentType { get; set; }
         public int? Status { get; set; }
         public bool IsDeleted { get; set; }
+        public string ShortName { get; set; }
     }
 }

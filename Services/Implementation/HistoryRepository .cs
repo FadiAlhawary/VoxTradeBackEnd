@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Data;
+using System.Text.Json;
 using Dapper;
 using Microsoft.EntityFrameworkCore;
 using VoxTrade.Api.Data;
@@ -165,54 +166,97 @@ namespace VoxTrade.Services.Implementation
                 throw;
             }
         }
-
-        public async Task<bool> CancelPendingOrder(int userId, int orderId)
+        public async Task<List<WalletHistoryDto>> GetWalletHistoryWithDate(
+    int userId,
+    DateTime? from = null,
+    DateTime? to = null)
         {
             try
             {
                 const string sql = """
-                    UPDATE public.orders o
-                    SET
-                        status_id = (
-                            SELECT l.id
-                            FROM public.lookup l
-                            INNER JOIN public.lookup_group lg
-                                ON lg.id = l.lookup_group_id
-                            WHERE lg.code = 'order_status'
-                              AND l.code = 'cancelled'
-                            LIMIT 1
-                        ),
-                        cancelled_at = CURRENT_TIMESTAMP,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE o.id = @OrderId
-                      AND o.user_id = @UserId
-                      AND o.status_id = (
-                            SELECT l.id
-                            FROM public.lookup l
-                            INNER JOIN public.lookup_group lg
-                                ON lg.id = l.lookup_group_id
-                            WHERE lg.code = 'order_status'
-                              AND l.code = 'pending'
-                            LIMIT 1
-                      )
-                      AND COALESCE(o.filled_quantity, 0) = 0
-                      AND (o.execution_price IS NULL OR o.execution_price = 0);
-                    """;
+            SELECT
+                wh.id,
+                wh.wallet_id AS WalletId,
+                wh.user_id AS UserId,
+                wh.order_id AS OrderId,
+                wh.trade_id AS TradeId,
+                wh.transaction_type AS TransactionType,
+                wh.amount,
+                wh.balance_before AS BalanceBefore,
+                wh.balance_after AS BalanceAfter,
+                wh.description,
+                wh.created_at AS CreatedAt
+            FROM public.wallet_history wh
+            WHERE wh.user_id = @UserId
+              AND (@From IS NULL OR wh.created_at >= @From)
+              AND (@To IS NULL OR wh.created_at <= @To)
+            ORDER BY wh.created_at DESC;
+            """;
 
                 var connection = _context.Database.GetDbConnection();
                 if (connection.State != ConnectionState.Open)
                     await connection.OpenAsync();
 
-                var affected = await connection.ExecuteAsync(
+                var result = await connection.QueryAsync<WalletHistoryDto>(
+                    sql,
+                    new
+                    {
+                        UserId = userId,
+                        From = from,
+                        To = to
+                    });
+
+                return result.ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get wallet history for user {UserId}", userId);
+                throw;
+            }
+        }
+
+        public async Task<CancelOrderResponseDto> CancelPendingOrder(int userId, int orderId)
+        {
+            try
+            {
+                const string sql = """
+            SELECT public.cancel_demo_order(
+                @OrderId,
+                @UserId
+            )::text;
+            """;
+
+                var connection = _context.Database.GetDbConnection();
+
+                if (connection.State != ConnectionState.Open)
+                    await connection.OpenAsync();
+
+                var json = await connection.ExecuteScalarAsync<string>(
                     sql,
                     new { UserId = userId, OrderId = orderId });
 
-                return affected > 0;
+                var result = JsonSerializer.Deserialize<CancelOrderResponseDto>(
+                    json ?? "{}",
+                    new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                return result ?? new CancelOrderResponseDto
+                {
+                    Success = false,
+                    Message = "Invalid response from database"
+                };
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to cancel order {OrderId} for user {UserId}", orderId, userId);
-                throw;
+
+                return new CancelOrderResponseDto
+                {
+                    Success = false,
+                    Message = "Failed to cancel order"
+                };
             }
         }
 
