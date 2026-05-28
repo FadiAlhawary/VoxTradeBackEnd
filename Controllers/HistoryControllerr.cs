@@ -30,6 +30,23 @@ namespace VoxTrade.Controllers
                 return StatusCode(500, "An error occurred while retrieving order history.");
             }
         }
+        [HttpGet("GetWalletHistoryWithDate")]
+        public async Task<IActionResult> GetWalletHistoryWithDate(
+    int userId,
+    DateTime? from = null,
+    DateTime? to = null)
+        {
+            try
+            {
+                var result = await _historyRepository.GetWalletHistoryWithDate(userId, from,to);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get order history for user {UserId}", userId);
+                return StatusCode(500, "An error occurred while retrieving order history.");
+            }
+        }
 
         [HttpPut("CancelOrder")]
         public async Task<IActionResult> CancelOrder(int orderId, [FromQuery] int userId)
@@ -38,8 +55,14 @@ namespace VoxTrade.Controllers
             {
                 var cancelled = await _historyRepository.CancelPendingOrder(userId, orderId);
 
-                if (!cancelled)
-                    return BadRequest("Order cannot be cancelled. It may already be executed, partially filled, cancelled, or not belong to this user.");
+                if (!cancelled.Success)
+                {
+                    return Ok(new
+                    {
+                        success = false,
+                        message = "Order cannot be cancelled. It may already be executed, partially filled, cancelled, or not belong to this user."
+                    });
+                }
 
                 return Ok(new
                 {
