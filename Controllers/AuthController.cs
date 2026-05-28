@@ -12,11 +12,25 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
     private readonly IUserRepository _userRepository;
+    private readonly IEmailService _emailService;
+    private readonly IConfiguration _configuration;
+    private readonly IWebHostEnvironment _environment;
+    private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService, IUserRepository userRepository)
+    public AuthController(
+        IAuthService authService,
+        IUserRepository userRepository,
+        IEmailService emailService,
+        IConfiguration configuration,
+        IWebHostEnvironment environment,
+        ILogger<AuthController> logger)
     {
         _authService = authService;
         _userRepository = userRepository;
+        _emailService = emailService;
+        _configuration = configuration;
+        _environment = environment;
+        _logger = logger;
     }
 
     [HttpPost("register")]
@@ -30,6 +44,57 @@ public class AuthController : ControllerBase
                 { 
                     Success = false, 
                     Message = "Username and password are required" 
+                });
+
+            // Username requirements: 3–20 chars, letters/digits/underscores only, must start with a letter
+            if (request.Username.Length < 3 || request.Username.Length > 20)
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Username must be between 3 and 20 characters" 
+                });
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Username, @"^[a-zA-Z][a-zA-Z0-9_]*$"))
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Username must start with a letter and contain only letters, digits, or underscores" 
+                });
+
+            // Password requirements: min 8 chars, at least one uppercase, one lowercase, one digit, one special char
+            if (request.Password.Length < 8)
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Password must be at least 8 characters long" 
+                });
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[A-Z]"))
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Password must contain at least one uppercase letter" 
+                });
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[a-z]"))
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Password must contain at least one lowercase letter" 
+                });
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[0-9]"))
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Password must contain at least one digit" 
+                });
+
+            if (!System.Text.RegularExpressions.Regex.IsMatch(request.Password, @"[^a-zA-Z0-9]"))
+                return BadRequest(new AuthResponse 
+                { 
+                    Success = false, 
+                    Message = "Password must contain at least one special character" 
                 });
 
             if (string.IsNullOrWhiteSpace(request.Email))
@@ -223,5 +288,101 @@ public class AuthController : ControllerBase
         }
 
         return Ok(new { success = true, message = "Password updated successfully." });
+    }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+        {
+            return BadRequest(new { success = false, message = "Email is required." });
+        }
+
+        var user = await _userRepository.GetUserByEmailAsync(request.Email);
+        if (user != null)
+        {
+            var token = _authService.GeneratePasswordResetToken(user);
+            
+            // Determine frontend URL: prefer Origin header (for tunnel URLs), fall back to config
+            string frontendBaseUrl;
+            if (Request.Headers.TryGetValue("Origin", out var origin) && !string.IsNullOrEmpty(origin))
+            {
+                frontendBaseUrl = origin.ToString();
+            }
+            else if (Request.Headers.TryGetValue("Referer", out var referer) && !string.IsNullOrEmpty(referer))
+            {
+                // Extract base URL from Referer (e.g., "https://example.com/path" -> "https://example.com")
+                var refererUri = new Uri(referer.ToString());
+                frontendBaseUrl = $"{refererUri.Scheme}://{refererUri.Host}{(refererUri.IsDefaultPort ? "" : $":{refererUri.Port}")}";
+            }
+            else
+            {
+                frontendBaseUrl = _configuration["Frontend:BaseUrl"] ?? "http://localhost:5173";
+            }
+            
+            var resetLink = $"{frontendBaseUrl.TrimEnd('/')}/reset-password?token={Uri.EscapeDataString(token)}";
+
+            try
+            {
+                await _emailService.SendPasswordResetEmailAsync(user.Email, resetLink);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "SMTP is not configured. Forgot-password email was not sent.");
+
+                if (_environment.IsDevelopment())
+                {
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "SMTP not configured. Use the development reset link below.",
+                        resetLink
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send reset password email.");
+                return StatusCode(500, new { success = false, message = "Unable to send reset email right now. Please try again later." });
+            }
+        }
+
+        // Always return success to avoid email enumeration.
+        return Ok(new { success = true, message = "If an account exists for this email, a reset link has been sent." });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Token))
+        {
+            return BadRequest(new { success = false, message = "Reset token is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 8)
+        {
+            return BadRequest(new { success = false, message = "Password must be at least 8 characters long." });
+        }
+
+        var userId = _authService.ValidatePasswordResetToken(request.Token);
+        if (!userId.HasValue)
+        {
+            return BadRequest(new { success = false, message = "Invalid or expired reset token." });
+        }
+
+        var user = await _userRepository.GetUserByIdAsync(userId.Value);
+        if (user == null)
+        {
+            return NotFound(new { success = false, message = "User not found." });
+        }
+
+        var hashedPassword = _authService.HashPassword(request.NewPassword);
+        var updated = await _userRepository.UpdatePasswordHashAsync(user.Id, hashedPassword);
+        if (!updated)
+        {
+            return StatusCode(500, new { success = false, message = "Could not update password." });
+        }
+
+        return Ok(new { success = true, message = "Password reset successfully." });
     }
 }

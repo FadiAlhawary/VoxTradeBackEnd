@@ -46,6 +46,28 @@ public class UserRepository : IUserRepository
         return user;
     }
 
+    public async Task<User?> GetUserByEmailAsync(string email)
+    {
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+
+        var user = await _context.Users
+            .Include(u => u.ContactInfo)
+            .FirstOrDefaultAsync(u =>
+                u.ContactInfo != null
+                && u.ContactInfo.PrimaryEmail != null
+                && u.ContactInfo.PrimaryEmail.ToLower() == normalizedEmail
+                && (!u.IsDeleted.HasValue || !u.IsDeleted.Value)
+            );
+
+        if (user != null)
+        {
+            user.Email = user.ContactInfo?.PrimaryEmail ?? string.Empty;
+            user.PhoneNumber = user.ContactInfo?.PrimaryPhoneNumber ?? string.Empty;
+        }
+
+        return user;
+    }
+
     public async Task<User> CreateUserAsync(User user)
     {
         _context.Users.Add(user);
