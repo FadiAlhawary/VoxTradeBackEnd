@@ -10,4 +10,6 @@ public interface IUserRepository
     Task<bool> UserExistsByUsernameAsync(string username);
     Task<bool> UserExistsByEmailAsync(string email);
     Task<UserDTO?> GetUserProfileById(int userId);
+    Task<bool> UpdateBackupEmailAsync(int userId, string backupEmail);
+    Task<bool> UpdatePasswordHashAsync(int userId, string passwordHash);
 }
