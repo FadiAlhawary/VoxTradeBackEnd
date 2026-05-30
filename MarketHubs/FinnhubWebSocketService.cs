@@ -15,6 +15,7 @@ namespace VoxTrade.MarketHubs
         private readonly IConfiguration _configuration;
         private readonly IHubContext<MarketHub> _hubContext;
         private readonly ILogger<FinnhubWebSocketService> _logger;
+        private readonly OrderMatchingService _orderMatching;
         private readonly HashSet<string> _activeSymbols = new();
         private readonly object _lock = new();
 
@@ -23,13 +24,15 @@ namespace VoxTrade.MarketHubs
         private readonly string _connectionString;
 
         public FinnhubWebSocketService(
-       IConfiguration configuration,
-       IHubContext<MarketHub> hubContext,
-       ILogger<FinnhubWebSocketService> logger)
+            IConfiguration configuration,
+            IHubContext<MarketHub> hubContext,
+            ILogger<FinnhubWebSocketService> logger,
+            OrderMatchingService orderMatching)
         {
             _configuration = configuration;
             _hubContext = hubContext;
             _logger = logger;
+            _orderMatching = orderMatching;
 
             _connectionString = configuration.GetConnectionString("Postgres")
                 ?? throw new InvalidOperationException("DefaultConnection missing.");
@@ -245,6 +248,7 @@ namespace VoxTrade.MarketHubs
                     };
 
                     await UpsertMarketQuoteAsync(dto, ct);
+                    await _orderMatching.MatchOrdersForSymbolAsync(dto.Symbol, dto.Price, ct);
 
                     await _hubContext.Clients
                         .Group(GroupNames.ForSymbol(dto.Symbol))

@@ -30,6 +30,16 @@ namespace VoxTrade.MarketHubs
             await _subscriptions.RemoveSubscriptionAsync(Context.ConnectionId, normalized);
         }
 
+        public async Task SubscribeOrders(int userId)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, GroupNames.ForUser(userId));
+        }
+
+        public async Task UnsubscribeOrders(int userId)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupNames.ForUser(userId));
+        }
+
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             await _subscriptions.RemoveAllForConnectionAsync(Context.ConnectionId);

@@ -70,6 +70,56 @@ ORDER BY i.symbol;
             return positions.ToList();
         }
 
+        public async Task<HoldingSummaryDto> GetHoldingSummary(int userId, string symbol)
+        {
+            const string sql = """
+SELECT
+    i.symbol AS Symbol,
+    i.id AS InstrumentId,
+    COALESCE(p.quantity, 0) AS QuantityOwned,
+    COALESCE(p.quantity * COALESCE(mq.last_trade_price, mq.bid_price, p.average_cost, 0), 0) AS ValueUsd
+FROM public.instruments i
+LEFT JOIN public.positions p
+    ON p.instrument_id = i.id
+   AND p.user_id = @UserId
+   AND p.quantity > 0
+LEFT JOIN LATERAL (
+    SELECT bid_price, ask_price, last_trade_price
+    FROM public.market_quotes
+    WHERE instrument_id = i.id
+    ORDER BY quote_timestamp DESC
+    LIMIT 1
+) mq ON true
+WHERE COALESCE(i.is_deleted, false) = false
+  AND (
+        UPPER(i.symbol) = UPPER(@Symbol)
+        OR UPPER(i.short_name) = UPPER(@Symbol)
+      )
+ORDER BY
+    CASE WHEN UPPER(i.symbol) = UPPER(@Symbol) THEN 0 ELSE 1 END,
+    i.id
+LIMIT 1;
+""";
+
+            var connection = _context.Database.GetDbConnection();
+
+            if (connection.State != ConnectionState.Open)
+                await connection.OpenAsync();
+
+            var result = await connection.QueryFirstOrDefaultAsync<HoldingSummaryDto>(
+                sql,
+                new { UserId = userId, Symbol = symbol }
+            );
+
+            return result ?? new HoldingSummaryDto
+            {
+                Symbol = symbol,
+                InstrumentId = null,
+                QuantityOwned = 0,
+                ValueUsd = 0
+            };
+        }
+
         public async Task<List<PortfolioProfitLossPointDto>> GetProfitLossChart(
     int userId,
     DateTime? from = null,

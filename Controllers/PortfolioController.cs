@@ -23,6 +23,16 @@ namespace VoxTrade.Controllers
                 await _IPortfolioRepository.GetPortfolio(userId)
                 );
         }
+
+        [HttpGet("GetHoldingSummary")]
+        public async Task<IActionResult> GetHoldingSummary(int userId, string symbol)
+        {
+            if (string.IsNullOrWhiteSpace(symbol))
+                return BadRequest("symbol is required");
+
+            return Ok(await _IPortfolioRepository.GetHoldingSummary(userId, symbol.Trim()));
+        }
+
         [HttpGet("GetProfitLossChart")]
         public async Task<IActionResult> GetProfitLossChart(
       int userId,
