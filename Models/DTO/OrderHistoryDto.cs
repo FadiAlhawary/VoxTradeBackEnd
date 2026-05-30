@@ -17,6 +17,9 @@
         public int StatusId { get; set; }
         public string Status { get; set; } = string.Empty;
 
+        public int SourceId { get; set; }
+        public string Source { get; set; } = string.Empty;
+
         public decimal? Quantity { get; set; }
         public decimal FilledQuantity { get; set; }
         public decimal? RemainingQuantity { get; set; }

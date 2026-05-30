@@ -37,6 +37,8 @@ namespace VoxTrade.Services.Implementation
                         COALESCE(at.code, '') AS ActionType,
                         o.status_id AS StatusId,
                         COALESCE(st.code, '') AS Status,
+                        o.source_id AS SourceId,
+                        COALESCE(src.code, '') AS Source,
                         o.quantity,
                         o.filled_quantity AS FilledQuantity,
                         o.remaining_quantity AS RemainingQuantity,
@@ -60,6 +62,7 @@ namespace VoxTrade.Services.Implementation
                     LEFT JOIN public.lookup ot ON ot.id = o.order_type_id
                     LEFT JOIN public.lookup at ON at.id = o.action_type_id
                     LEFT JOIN public.lookup st ON st.id = o.status_id
+                                        LEFT JOIN public.lookup src ON src.id = o.source_id
                     WHERE o.user_id = @UserId
                       AND COALESCE(i.is_deleted, false) = false
                       AND (

@@ -13,4 +13,7 @@ public interface IUserRepository
     Task<UserDTO?> GetUserProfileById(int userId);
     Task<bool> UpdateBackupEmailAsync(int userId, string backupEmail);
     Task<bool> UpdatePasswordHashAsync(int userId, string passwordHash);
+    Task<bool> UpdatePhoneNumberAsync(int userId, string phoneNumber);
+    Task<bool> IsTwoFaEnabledAsync(int userId);
+    Task SetTwoFaEnabledAsync(int userId, bool enabled);
 }

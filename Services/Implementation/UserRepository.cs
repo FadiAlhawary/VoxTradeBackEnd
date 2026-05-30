@@ -231,4 +231,47 @@ public class UserRepository : IUserRepository
         await _context.SaveChangesAsync();
         return true;
     }
+
+    public async Task<bool> IsTwoFaEnabledAsync(int userId)
+    {
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && (!u.IsDeleted.HasValue || !u.IsDeleted.Value));
+        return user?.IsTwoFaEnabled ?? false;
+    }
+
+    public async Task SetTwoFaEnabledAsync(int userId, bool enabled)
+    {
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && (!u.IsDeleted.HasValue || !u.IsDeleted.Value));
+        if (user == null) return;
+        user.IsTwoFaEnabled = enabled;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<bool> UpdatePhoneNumberAsync(int userId, string phoneNumber)
+    {
+        var contactInfo = await _context.ContactInfo
+            .FirstOrDefaultAsync(ci => ci.UserId == userId && (ci.IsDeleted == null || ci.IsDeleted == false));
+
+        if (contactInfo == null)
+        {
+            _context.ContactInfo.Add(new ContactInfo
+            {
+                UserId = userId,
+                PrimaryPhoneNumber = phoneNumber,
+                IsPrimaryPhoneActive = !string.IsNullOrWhiteSpace(phoneNumber),
+                CreatedAt = DateTime.UtcNow,
+                IsDeleted = false,
+            });
+        }
+        else
+        {
+            contactInfo.PrimaryPhoneNumber = phoneNumber;
+            contactInfo.IsPrimaryPhoneActive = !string.IsNullOrWhiteSpace(phoneNumber);
+            _context.ContactInfo.Update(contactInfo);
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
 }

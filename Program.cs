@@ -16,9 +16,15 @@ builder.Services.AddSignalR()
             System.Text.Json.JsonNamingPolicy.CamelCase;
     });
 
+builder.Services.AddSingleton<OrderMatchingService>();
 builder.Services.AddSingleton<FinnhubWebSocketService>();
 builder.Services.AddSingleton<MarketSubscriptionService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<FinnhubWebSocketService>());
+builder.Services.Configure<HostOptions>(options =>
+{
+    // Keep API alive even if market stream background task fails transiently.
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+});
 builder.Services.AddScoped<VoxTrade.Data.IDbConnectionFactory, VoxTrade.Data.DbConnectionFactory>();
 builder.Services.AddScoped<IInstrumentRepository, InstrumentRepository>();
 builder.Services.AddScoped<IWalletRepo, WalletRepo>();
@@ -26,6 +32,7 @@ builder.Services.AddScoped<IMarketRepository, MarketRepository>();
 builder.Services.AddScoped<IPortfolioRepository, PortfolioRepository>();
 
 
+builder.Services.AddHttpClient();
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
 

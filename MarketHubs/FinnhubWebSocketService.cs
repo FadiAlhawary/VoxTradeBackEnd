@@ -72,12 +72,23 @@ namespace VoxTrade.MarketHubs
                     await ConnectAsync(stoppingToken);
                     await ReceiveLoopAsync(stoppingToken);
                 }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Finnhub websocket failed. Reconnecting...");
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
             }
         }
 
@@ -157,69 +168,92 @@ namespace VoxTrade.MarketHubs
 
             while (_socket is not null && _socket.State == WebSocketState.Open && !ct.IsCancellationRequested)
             {
-                var ms = new MemoryStream();
-                WebSocketReceiveResult result;
-
-                do
+                try
                 {
-                    result = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
+                    var ms = new MemoryStream();
+                    WebSocketReceiveResult result;
 
-                    if (result.MessageType == WebSocketMessageType.Close)
+                    do
                     {
-                        await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed", ct);
-                        return;
+                        result = await _socket.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
+
+                        if (result.MessageType == WebSocketMessageType.Close)
+                        {
+                            await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closed", ct);
+                            return;
+                        }
+
+                        ms.Write(buffer, 0, result.Count);
                     }
+                    while (!result.EndOfMessage);
 
-                    ms.Write(buffer, 0, result.Count);
+                    var json = Encoding.UTF8.GetString(ms.ToArray());
+                    Console.WriteLine("Listening...");
+                    Console.WriteLine("RAW: " + json);
+                    
+                    await HandleFinnhubMessageAsync(json, ct);
                 }
-                while (!result.EndOfMessage);
-
-                var json = Encoding.UTF8.GetString(ms.ToArray());
-                await HandleFinnhubMessageAsync(json, ct);
-
-                Console.WriteLine("Listening...");
-                Console.WriteLine("RAW: " + json);
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error in receive loop");
+                    return;
+                }
             }
         }
 
         private async Task HandleFinnhubMessageAsync(string json, CancellationToken ct)
         {
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            if (!root.TryGetProperty("type", out var typeProp))
-                return;
-
-            var type = typeProp.GetString();
-
-            if (!string.Equals(type, "trade", StringComparison.OrdinalIgnoreCase))
-                return;
-
-            if (!root.TryGetProperty("data", out var dataProp) || dataProp.ValueKind != JsonValueKind.Array)
-                return;
-
-            foreach (var item in dataProp.EnumerateArray())
+            try
             {
-                var symbol = item.GetProperty("s").GetString();
-                if (string.IsNullOrWhiteSpace(symbol))
-                    continue;
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
 
-                var dto = new MarketTickDto
+                if (!root.TryGetProperty("type", out var typeProp))
+                    return;
+
+                var type = typeProp.GetString();
+
+                // Skip non-trade messages (e.g., pings, subscription confirmations)
+                if (!string.Equals(type, "trade", StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                if (!root.TryGetProperty("data", out var dataProp) || dataProp.ValueKind != JsonValueKind.Array)
+                    return;
+
+                foreach (var item in dataProp.EnumerateArray())
                 {
-                    Symbol = symbol,
-                    Price = item.TryGetProperty("p", out var p) ? p.GetDecimal() : 0,
-                    Volume = item.TryGetProperty("v", out var v) ? v.GetDecimal() : 0,
-                    TimestampUnixMs = item.TryGetProperty("t", out var t) ? t.GetInt64() : 0,
-                    Conditions = item.TryGetProperty("c", out var c) && c.ValueKind == JsonValueKind.Array
-                        ? c.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
-                        : Array.Empty<string>()
-                };
+                    if (!item.TryGetProperty("s", out var symbolProp))
+                        continue;
 
-                await UpsertMarketQuoteAsync(dto, ct);
+                    var symbol = symbolProp.GetString();
+                    if (string.IsNullOrWhiteSpace(symbol))
+                        continue;
 
-                await _hubContext.Clients
-                    .Group(GroupNames.ForSymbol(dto.Symbol))
-                    .SendAsync("MarketTick", dto, ct);
+                    var dto = new MarketTickDto
+                    {
+                        Symbol = symbol,
+                        Price = item.TryGetProperty("p", out var p) ? p.GetDecimal() : 0,
+                        Volume = item.TryGetProperty("v", out var v) ? v.GetDecimal() : 0,
+                        TimestampUnixMs = item.TryGetProperty("t", out var t) ? t.GetInt64() : 0,
+                        Conditions = item.TryGetProperty("c", out var c) && c.ValueKind == JsonValueKind.Array
+                            ? c.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToArray()
+                            : Array.Empty<string>()
+                    };
+
+                    await UpsertMarketQuoteAsync(dto, ct);
+
+                    await _hubContext.Clients
+                        .Group(GroupNames.ForSymbol(dto.Symbol))
+                        .SendAsync("MarketTick", dto, ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error handling Finnhub message: {Message}", json);
             }
         }
     }

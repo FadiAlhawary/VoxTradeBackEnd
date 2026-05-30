@@ -8,4 +8,6 @@ public class AuthResponse
     public string Message { get; set; }
     public string Token { get; set; }
     public UserDTO User { get; set; }
+    public bool RequiresTwoFactor { get; set; }
+    public int? PendingUserId { get; set; }
 }

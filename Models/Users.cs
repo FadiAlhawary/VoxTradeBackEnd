@@ -62,6 +62,9 @@ namespace VoxTrade.Models
         [Column("is_deleted")]
         public bool? IsDeleted { get; set; }
 
+        [Column("is_2fa_enabled")]
+        public bool IsTwoFaEnabled { get; set; }
+
         [Column("delete_at")]
         public DateTime? DeleteAt { get; set; }
 

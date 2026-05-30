@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using VoxTrade.Models;
 using VoxTrade.Models.Auth;
 using VoxTrade.Models.DTO;
@@ -16,6 +17,10 @@ public class AuthController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
     private readonly ILogger<AuthController> _logger;
+    private readonly IMemoryCache _cache;
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    private static string OtpCacheKey(int userId) => $"2fa_otp:{userId}";
 
     public AuthController(
         IAuthService authService,
@@ -23,7 +28,9 @@ public class AuthController : ControllerBase
         IEmailService emailService,
         IConfiguration configuration,
         IWebHostEnvironment environment,
-        ILogger<AuthController> logger)
+        ILogger<AuthController> logger,
+        IMemoryCache cache,
+        IHttpClientFactory httpClientFactory)
     {
         _authService = authService;
         _userRepository = userRepository;
@@ -31,6 +38,109 @@ public class AuthController : ControllerBase
         _configuration = configuration;
         _environment = environment;
         _logger = logger;
+        _cache = cache;
+        _httpClientFactory = httpClientFactory;
+    }
+
+    [HttpPost("google-register")]
+    public async Task<ActionResult<AuthResponse>> GoogleRegister([FromBody] GoogleRegisterRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.IdToken))
+                return BadRequest(new AuthResponse { Success = false, Message = "ID token is required." });
+
+            // Validate token with Google
+            var httpClient = _httpClientFactory.CreateClient();
+            var tokenInfoUrl = $"https://oauth2.googleapis.com/tokeninfo?id_token={Uri.EscapeDataString(request.IdToken)}";
+            var googleResponse = await httpClient.GetAsync(tokenInfoUrl);
+
+            if (!googleResponse.IsSuccessStatusCode)
+                return Unauthorized(new AuthResponse { Success = false, Message = "Invalid Google token." });
+
+            var json = await googleResponse.Content.ReadAsStringAsync();
+            var tokenInfo = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+
+            if (tokenInfo == null || !tokenInfo.TryGetValue("email", out var email) || string.IsNullOrEmpty(email))
+                return Unauthorized(new AuthResponse { Success = false, Message = "Could not read email from Google token." });
+
+            // Verify audience
+            var expectedClientId = _configuration["GoogleAuth:ClientId"];
+            if (!string.IsNullOrEmpty(expectedClientId)
+                && tokenInfo.TryGetValue("aud", out var aud)
+                && aud != expectedClientId)
+                return Unauthorized(new AuthResponse { Success = false, Message = "Token audience mismatch." });
+
+            // Existing user → login
+            var existingUser = await _userRepository.GetUserByEmailAsync(email);
+            if (existingUser != null)
+            {
+                existingUser.IsLoggedIn = true;
+                existingUser.LastLoginDate = DateTime.UtcNow;
+                await _userRepository.UpdateUserAsync(existingUser);
+
+                var loginToken = _authService.GenerateJwtToken(existingUser);
+                var loginDTO = await _userRepository.GetUserProfileById(existingUser.Id)
+                               ?? new UserDTO { Id = existingUser.Id, Username = existingUser.Username };
+
+                return Ok(new AuthResponse { Success = true, Message = "Login successful", Token = loginToken, User = loginDTO });
+            }
+
+            // New user → register
+            tokenInfo.TryGetValue("given_name", out var googleFirst);
+            tokenInfo.TryGetValue("family_name", out var googleLast);
+            tokenInfo.TryGetValue("name", out var googleFull);
+
+            var firstName = request.FirstNameEn ?? googleFirst ?? googleFull ?? "";
+            var lastName  = request.LastNameEn  ?? googleLast  ?? "";
+
+            // Auto-generate a unique username if none supplied
+            var username = request.Username?.Trim();
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                var raw = email.Split('@')[0];
+                var cleaned = System.Text.RegularExpressions.Regex.Replace(raw, @"[^a-zA-Z0-9_]", "");
+                if (!System.Text.RegularExpressions.Regex.IsMatch(cleaned, @"^[a-zA-Z]"))
+                    cleaned = "user" + cleaned;
+                if (cleaned.Length < 3) cleaned = cleaned.PadRight(3, '0');
+                if (cleaned.Length > 18) cleaned = cleaned[..18];
+
+                username = cleaned;
+                var suffix = 1;
+                while (await _userRepository.UserExistsByUsernameAsync(username))
+                    username = cleaned + suffix++;
+            }
+
+            var newUser = new User
+            {
+                Username    = username,
+                Email       = email,
+                FirstNameEn = firstName,
+                LastNameEn  = lastName,
+                FirstNameAr = "",
+                LastNameAr  = "",
+                Dob         = request.Dob?.ToUniversalTime(),
+                PhoneNumber = request.PhoneNumber ?? "",
+                Password    = _authService.HashPassword(Guid.NewGuid().ToString()),
+                CreatedAt   = DateTime.UtcNow,
+                IsLoggedIn  = true,
+                IsDeleted   = false,
+            };
+
+            var created = await _userRepository.CreateUserAsync(newUser);
+            var token   = _authService.GenerateJwtToken(created);
+            await _userRepository.UpdateUserAsync(created);
+
+            var userDTO = await _userRepository.GetUserProfileById(created.Id)
+                          ?? new UserDTO { Id = created.Id, Username = created.Username };
+
+            return Ok(new AuthResponse { Success = true, Message = "Registration successful", Token = token, User = userDTO });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Google authentication failed");
+            return StatusCode(500, new AuthResponse { Success = false, Message = $"Google authentication failed: {ex.Message}" });
+        }
     }
 
     [HttpPost("register")]
@@ -206,19 +316,39 @@ public class AuthController : ControllerBase
                     Message = "Invalid username or password" 
                 });
 
+            // If 2FA is enabled, return a pending challenge instead of a token
+            if (user.IsTwoFaEnabled)
+            {
+                var otp = Random.Shared.Next(100_000, 999_999).ToString();
+                _cache.Set(OtpCacheKey(user.Id), otp, TimeSpan.FromMinutes(10));
+
+                var email = user.ContactInfo?.PrimaryEmail ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(email))
+                {
+                    try { await _emailService.SendTwoFaCodeAsync(email, user.Username, otp); }
+                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to send 2FA email to user {UserId}", user.Id); }
+                }
+
+                if (_environment.IsDevelopment())
+                    _logger.LogInformation("2FA OTP for user {UserId}: {Otp}", user.Id, otp);
+
+                return Ok(new AuthResponse
+                {
+                    Success = true,
+                    RequiresTwoFactor = true,
+                    PendingUserId = user.Id,
+                    Message = "Verification code sent to your email."
+                });
+            }
+
             // Generate JWT token
             var token = _authService.GenerateJwtToken(user);
-            
-            // Update login status in database (don't store token)
+
             user.IsLoggedIn = true;
             user.LastLoginDate = DateTime.UtcNow;
-
-            // Update user in database
             await _userRepository.UpdateUserAsync(user);
 
-            UserDTO userDTO = new UserDTO();
-
-            userDTO =await _userRepository.GetUserProfileById(user.Id);
+            var userDTO = await _userRepository.GetUserProfileById(user.Id);
 
             return Ok(new AuthResponse
             {
@@ -259,6 +389,23 @@ public class AuthController : ControllerBase
 
         await _userRepository.UpdateBackupEmailAsync(request.UserId, request.BackupEmail.Trim());
         return Ok(new { success = true, message = "Backup email updated successfully." });
+    }
+
+    [HttpPut("phone-number")]
+    public async Task<IActionResult> UpdatePhoneNumber([FromBody] UpdatePhoneNumberRequest request)
+    {
+        if (request.UserId <= 0)
+            return BadRequest(new { success = false, message = "Valid user id is required." });
+
+        if (string.IsNullOrWhiteSpace(request.PhoneNumber))
+            return BadRequest(new { success = false, message = "Phone number is required." });
+
+        var user = await _userRepository.GetUserByIdAsync(request.UserId);
+        if (user == null)
+            return NotFound(new { success = false, message = "User not found." });
+
+        await _userRepository.UpdatePhoneNumberAsync(request.UserId, request.PhoneNumber.Trim());
+        return Ok(new { success = true, message = "Phone number updated successfully." });
     }
 
     [HttpPut("change-password")]
@@ -384,5 +531,101 @@ public class AuthController : ControllerBase
         }
 
         return Ok(new { success = true, message = "Password reset successfully." });
+    }
+
+    // ── 2FA endpoints ─────────────────────────────────────────────────────────
+
+    [HttpGet("2fa/status")]
+    public async Task<IActionResult> TwoFaStatus([FromQuery] int userId)
+    {
+        if (userId <= 0) return BadRequest(new { success = false, message = "Valid user id is required." });
+        var enabled = await _userRepository.IsTwoFaEnabledAsync(userId);
+        return Ok(new { success = true, isTwoFaEnabled = enabled });
+    }
+
+    [HttpPost("2fa/send-code")]
+    public async Task<IActionResult> TwoFaSendCode([FromBody] TwoFaSendCodeRequest request)
+    {
+        if (request.UserId <= 0) return BadRequest(new { success = false, message = "Valid user id is required." });
+
+        var user = await _userRepository.GetUserByIdAsync(request.UserId);
+        if (user == null) return NotFound(new { success = false, message = "User not found." });
+
+        var otp = Random.Shared.Next(100_000, 999_999).ToString();
+        _cache.Set(OtpCacheKey(user.Id), otp, TimeSpan.FromMinutes(10));
+
+        var email = user.ContactInfo?.PrimaryEmail ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(email))
+            return BadRequest(new { success = false, message = "No email address on file." });
+
+        try
+        {
+            await _emailService.SendTwoFaCodeAsync(email, user.Username, otp);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send 2FA code to user {UserId}", user.Id);
+            if (_environment.IsDevelopment())
+                return Ok(new { success = true, message = $"[Dev] Code: {otp}" });
+            return StatusCode(500, new { success = false, message = "Failed to send verification code." });
+        }
+
+        if (_environment.IsDevelopment())
+            _logger.LogInformation("2FA OTP for user {UserId}: {Otp}", user.Id, otp);
+
+        return Ok(new { success = true, message = "Verification code sent to your email." });
+    }
+
+    [HttpPost("2fa/enable")]
+    public async Task<IActionResult> TwoFaEnable([FromBody] TwoFaVerifyRequest request)
+    {
+        if (request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Code))
+            return BadRequest(new { success = false, message = "User id and code are required." });
+
+        if (!_cache.TryGetValue(OtpCacheKey(request.UserId), out string? stored) || stored != request.Code.Trim())
+            return BadRequest(new { success = false, message = "Invalid or expired code." });
+
+        _cache.Remove(OtpCacheKey(request.UserId));
+        await _userRepository.SetTwoFaEnabledAsync(request.UserId, true);
+        return Ok(new { success = true, message = "Two-factor authentication enabled." });
+    }
+
+    [HttpPost("2fa/disable")]
+    public async Task<IActionResult> TwoFaDisable([FromBody] TwoFaSendCodeRequest request)
+    {
+        if (request.UserId <= 0) return BadRequest(new { success = false, message = "Valid user id is required." });
+        await _userRepository.SetTwoFaEnabledAsync(request.UserId, false);
+        _cache.Remove(OtpCacheKey(request.UserId));
+        return Ok(new { success = true, message = "Two-factor authentication disabled." });
+    }
+
+    [HttpPost("2fa/login")]
+    public async Task<IActionResult> TwoFaLogin([FromBody] TwoFaVerifyRequest request)
+    {
+        if (request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Code))
+            return BadRequest(new { success = false, message = "User id and code are required." });
+
+        if (!_cache.TryGetValue(OtpCacheKey(request.UserId), out string? stored) || stored != request.Code.Trim())
+            return BadRequest(new { success = false, message = "Invalid or expired code." });
+
+        _cache.Remove(OtpCacheKey(request.UserId));
+
+        var user = await _userRepository.GetUserByIdAsync(request.UserId);
+        if (user == null) return NotFound(new { success = false, message = "User not found." });
+
+        user.IsLoggedIn = true;
+        user.LastLoginDate = DateTime.UtcNow;
+        await _userRepository.UpdateUserAsync(user);
+
+        var token = _authService.GenerateJwtToken(user);
+        var userDTO = await _userRepository.GetUserProfileById(user.Id) ?? new UserDTO { Id = user.Id, Username = user.Username };
+
+        return Ok(new AuthResponse
+        {
+            Success = true,
+            Message = "Login successful",
+            Token = token,
+            User = userDTO
+        });
     }
 }
