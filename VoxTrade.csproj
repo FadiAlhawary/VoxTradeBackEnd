@@ -25,4 +25,8 @@
     <Compile Remove="VoxTradeBackEnd\**\*.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Scripts\migrations\*.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

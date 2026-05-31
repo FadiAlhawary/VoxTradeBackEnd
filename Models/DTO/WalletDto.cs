@@ -17,6 +17,10 @@ namespace VoxTrade.Models.DTO
         [Column(TypeName = "numeric")]
         public decimal ReservedBalance { get; set; } = 0;
         public bool Status { get; set; } = true;
+
+        /// <summary>True when <see cref="Status"/> is false (frozen).</summary>
+        public bool IsFrozen => !Status;
+
         public DateTime UpdatedAt { get; set; }
         public List<WalletHistoryDto> walletHistory { get; set; }
     }

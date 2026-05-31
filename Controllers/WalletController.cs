@@ -11,17 +11,32 @@ namespace VoxTrade.Controllers
     public class WalletController : ControllerBase
     {
         private readonly IWalletRepo _walletRepo;
-        public WalletController(IWalletRepo walletRepo)
+        private readonly IWalletTransferService _walletTransferService;
+
+        public WalletController(IWalletRepo walletRepo, IWalletTransferService walletTransferService)
         {
             _walletRepo = walletRepo;
+            _walletTransferService = walletTransferService;
         }
 
         [HttpGet("GetWallet")]
-       public async Task<IActionResult> GetWallet(int userId, bool WithHisory = false)
+        public async Task<IActionResult> GetWallet(int userId, bool WithHisory = false)
         {
-             return Ok(await _walletRepo.GetWallet(userId, WithHisory));
+            return Ok(await _walletRepo.GetWallet(userId, WithHisory));
         }
 
+        /// <summary>
+        /// Transfer funds from one user wallet to another (balance and available_balance).
+        /// </summary>
+        [HttpPost("Transfer")]
+        public async Task<IActionResult> TransferMoney([FromBody] TransferMoneyRequestDto request)
+        {
+            var result = await _walletTransferService.TransferMoneyAsync(request);
 
+            if (!result.Success)
+                return BadRequest(result);
+
+            return Ok(result);
+        }
     }
 }

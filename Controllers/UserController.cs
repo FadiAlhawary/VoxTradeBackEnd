@@ -23,5 +23,16 @@ namespace VoxTrade.Controllers
             return Ok(user);
         }
 
+        [HttpGet("SearchUsers")]
+        public async Task<IActionResult> SearchUsers([FromQuery] string query, [FromQuery] int limit = 20)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return Ok(Array.Empty<UserSearchResultDto>());
+            }
+
+            var users = await _userRepository.SearchUsersAsync(query, limit);
+            return Ok(users);
+        }
     }
 }

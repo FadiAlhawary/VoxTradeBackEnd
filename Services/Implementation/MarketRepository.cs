@@ -7,6 +7,7 @@ using Npgsql;
 using VoxTrade.Api.Data;
 using VoxTrade.Models.DTO;
 using VoxTrade.Services.Interface;
+using VoxTrade.Services;
 
 namespace VoxTrade.Services.Implementation
 {
@@ -23,6 +24,23 @@ namespace VoxTrade.Services.Implementation
 
         public async Task<PlaceOrderResponseDto> PlaceOrder(PlaceOrderRequestDto request)
         {
+            var connection = _context.Database.GetDbConnection();
+
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            var frozenMessage = await WalletFreezeGuard.GetFrozenMessageIfAnyAsync(
+                connection,
+                request.UserId);
+            if (frozenMessage != null)
+            {
+                return new PlaceOrderResponseDto
+                {
+                    Success = false,
+                    Message = frozenMessage
+                };
+            }
+
             const string sql = """
             SELECT public.place_demo_order(
                 @UserId,
@@ -36,11 +54,6 @@ namespace VoxTrade.Services.Implementation
             )::text;
         """;
 
-            var connection = _context.Database.GetDbConnection();
-
-            if (connection.State != System.Data.ConnectionState.Open)
-                await connection.OpenAsync();
-
             var json = await connection.ExecuteScalarAsync<string>(sql, new
             {
                 request.UserId,
@@ -53,16 +66,28 @@ namespace VoxTrade.Services.Implementation
                 request.SourceCode
             });
 
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new PlaceOrderResponseDto
+                {
+                    Success = false,
+                    Message = "Empty response from order service"
+                };
+            }
+
             var result = JsonSerializer.Deserialize<PlaceOrderResponseDto>(
-                json!,
+                json,
                 new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 }
-            ); 
+            );
 
-
-            return result;
+            return result ?? new PlaceOrderResponseDto
+            {
+                Success = false,
+                Message = "Invalid response from order service"
+            };
         }
     }
 }

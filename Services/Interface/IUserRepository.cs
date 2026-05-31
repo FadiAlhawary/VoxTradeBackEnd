@@ -13,4 +13,5 @@ public interface IUserRepository
     Task<UserDTO?> GetUserProfileById(int userId);
     Task<bool> UpdateBackupEmailAsync(int userId, string backupEmail);
     Task<bool> UpdatePasswordHashAsync(int userId, string passwordHash);
+    Task<List<UserSearchResultDto>> SearchUsersAsync(string query, int limit = 20);
 }
