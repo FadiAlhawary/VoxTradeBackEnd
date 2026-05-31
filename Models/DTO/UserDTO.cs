@@ -22,5 +22,10 @@
         public bool IsPrimaryPhoneNumberActive { get; set; }
         public bool IsAltPhoneNumberActive { get; set; }
 
+        public int? RoleId { get; set; }
+        public string? RoleNameEn { get; set; }
+
+        public bool IsLocked { get; set; }
+        public bool IsDeleted { get; set; }
     }
 }

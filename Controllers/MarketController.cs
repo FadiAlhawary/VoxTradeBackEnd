@@ -24,6 +24,9 @@ namespace VoxTrade.Controllers
             if (placeOrderResponseDto is null)
                 return StatusCode(500, "Invalid database response");
 
+            if (!placeOrderResponseDto.Success)
+                return BadRequest(placeOrderResponseDto);
+
             return Ok(placeOrderResponseDto);
         }
 

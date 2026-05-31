@@ -16,4 +16,5 @@ public interface IUserRepository
     Task<bool> UpdatePhoneNumberAsync(int userId, string phoneNumber);
     Task<bool> IsTwoFaEnabledAsync(int userId);
     Task SetTwoFaEnabledAsync(int userId, bool enabled);
+    Task<List<UserSearchResultDto>> SearchUsersAsync(string query, int limit = 20);
 }

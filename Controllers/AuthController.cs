@@ -278,10 +278,11 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new AuthResponse 
-            { 
-                Success = false, 
-                Message = $"Registration failed: {ex.Message}" 
+            _logger.LogError(ex, "Registration failed for username {Username}", request.Username);
+            return StatusCode(500, new AuthResponse
+            {
+                Success = false,
+                Message = "Registration failed. Please try again or contact support."
             });
         }
     }
@@ -291,30 +292,48 @@ public class AuthController : ControllerBase
     {
         try
         {
-            // Validate input
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-                return BadRequest(new AuthResponse 
-                { 
-                    Success = false, 
-                    Message = "Username and password are required" 
+                return BadRequest(new AuthResponse
+                {
+                    Success = false,
+                    Message = "Username and password are required"
                 });
 
-            // Find user by username in database
             var user = await _userRepository.GetUserByUsernameAsync(request.Username);
+
             if (user == null)
-                return Unauthorized(new AuthResponse 
-                { 
-                    Success = false, 
-                    Message = "Invalid username or password" 
+                return Unauthorized(new AuthResponse
+                {
+                    Success = false,
+                    Message = "Invalid username or password"
                 });
 
-            // Verify password
             if (!_authService.VerifyPassword(request.Password, user.Password))
-                return Unauthorized(new AuthResponse 
-                { 
-                    Success = false, 
-                    Message = "Invalid username or password" 
+                return Unauthorized(new AuthResponse
+                {
+                    Success = false,
+                    Message = "Invalid username or password"
                 });
+
+            if (user.IsDeleted == true)
+            {
+                return Unauthorized(new AuthResponse
+                {
+                    Success = false,
+                    Message = "This account has been deactivated. Please contact admin."
+                });
+            }
+
+            if (user.IsLocked)
+            {
+                return Unauthorized(new AuthResponse
+                {
+                    Success = false,
+                    Message = string.IsNullOrWhiteSpace(user.LockReason)
+                        ? "This account is locked. Please contact admin."
+                        : $"This account is locked. Reason: {user.LockReason}"
+                });
+            }
 
             // If 2FA is enabled, return a pending challenge instead of a token
             if (user.IsTwoFaEnabled)
@@ -341,11 +360,11 @@ public class AuthController : ControllerBase
                 });
             }
 
-            // Generate JWT token
             var token = _authService.GenerateJwtToken(user);
 
             user.IsLoggedIn = true;
             user.LastLoginDate = DateTime.UtcNow;
+
             await _userRepository.UpdateUserAsync(user);
 
             var userDTO = await _userRepository.GetUserProfileById(user.Id);
@@ -360,14 +379,14 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            return StatusCode(500, new AuthResponse 
-            { 
-                Success = false, 
-                Message = $"Login failed: {ex.Message}" 
+            _logger.LogError(ex, "Login failed for user {Username}", request.Username);
+            return StatusCode(500, new AuthResponse
+            {
+                Success = false,
+                Message = "Login failed. Please try again or contact support."
             });
         }
     }
-
     [HttpPut("backup-email")]
     public async Task<IActionResult> UpdateBackupEmail([FromBody] UpdateBackupEmailRequest request)
     {

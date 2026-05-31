@@ -4,6 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using VoxTrade.Api.Data;
 using VoxTrade.MarketHubs;
+using VoxTrade.Admin.Interfaces;
+using VoxTrade.Admin.Services;
+using VoxTrade.Dashboard.Interfaces;
+using VoxTrade.Dashboard.Services;
+using VoxTrade.PaymentMethods.Interfaces;
+using VoxTrade.PaymentMethods.Services;
+using VoxTrade.Data;
 using VoxTrade.Services.Implementation;
 using VoxTrade.Services.Interface;
 
@@ -28,6 +35,7 @@ builder.Services.Configure<HostOptions>(options =>
 builder.Services.AddScoped<VoxTrade.Data.IDbConnectionFactory, VoxTrade.Data.DbConnectionFactory>();
 builder.Services.AddScoped<IInstrumentRepository, InstrumentRepository>();
 builder.Services.AddScoped<IWalletRepo, WalletRepo>();
+builder.Services.AddScoped<IWalletTransferService, WalletTransferService>();
 builder.Services.AddScoped<IMarketRepository, MarketRepository>();
 builder.Services.AddScoped<IPortfolioRepository, PortfolioRepository>();
 
@@ -47,6 +55,9 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IHistoryRepository, HistoryRepository>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddScoped<IUserDashboardService, UserDashboardService>();
+builder.Services.AddScoped<IPaymentMethodService, PaymentMethodService>();
 
 // Add JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "your-256-bit-secret-key-that-is-very-long-and-secure";
@@ -83,6 +94,14 @@ builder.Services.AddCors(options =>
     });
 });
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<TradingDbContext>();
+    var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    await WalletFreezeSchemaBootstrap.EnsureWalletFreezeGuardAsync(db, env, logger);
+}
 
 app.UseCors("AllowFrontend");
 

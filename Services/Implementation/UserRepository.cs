@@ -163,13 +163,19 @@ public class UserRepository : IUserRepository
                 COALESCE(ci.is_primary_email_active, false) AS IsPrimaryEmailActive,
                 COALESCE(ci.is_alt_email_active, false) AS IsAltEmailActive,
                 COALESCE(ci.is_primary_phone_number_active, false) AS IsPrimaryPhoneNumberActive,
-                COALESCE(ci.is_alt_phone_number_active, false) AS IsAltPhoneNumberActive
+                COALESCE(ci.is_alt_phone_number_active, false) AS IsAltPhoneNumberActive,
+                u.role_id AS RoleId,
+                r.role_name_en AS RoleNameEn,
+                COALESCE(u.is_locked, false) AS IsLocked,
+                COALESCE(u.is_deleted, false) AS IsDeleted
             FROM public.users u
             LEFT JOIN public.contact_info ci
                 ON ci.user_id = u.id
                AND COALESCE(ci.is_deleted, false) = false
-            WHERE u.id = @UserId
-              AND COALESCE(u.is_deleted, false) = false;
+            LEFT JOIN public.roles r
+                ON r.id = u.role_id
+               AND COALESCE(r.is_deleted, false) = false
+            WHERE u.id = @UserId;
             """;
 
             var connection = _context.Database.GetDbConnection();
@@ -273,5 +279,57 @@ public class UserRepository : IUserRepository
 
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<List<UserSearchResultDto>> SearchUsersAsync(string query, int limit = 20)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return new List<UserSearchResultDto>();
+        }
+
+        var trimmed = query.Trim();
+        var pattern = $"%{trimmed}%";
+        var cappedLimit = Math.Clamp(limit, 1, 50);
+
+        try
+        {
+            const string sql = """
+                SELECT
+                    u.id AS Id,
+                    u.username AS Username,
+                    u.first_name_en AS FirstNameEn,
+                    u.last_name_en AS LastNameEn,
+                    TRIM(CONCAT(u.first_name_en, ' ', u.last_name_en)) AS DisplayName
+                FROM public.users u
+                WHERE COALESCE(u.is_deleted, false) = false
+                  AND (
+                        u.username ILIKE @Pattern
+                     OR u.first_name_en ILIKE @Pattern
+                     OR u.last_name_en ILIKE @Pattern
+                     OR TRIM(CONCAT(u.first_name_en, ' ', u.last_name_en)) ILIKE @Pattern
+                  )
+                ORDER BY
+                    CASE WHEN u.username ILIKE @Pattern THEN 0 ELSE 1 END,
+                    u.username
+                LIMIT @Limit;
+                """;
+
+            var connection = _context.Database.GetDbConnection();
+
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            var results = await connection.QueryAsync<UserSearchResultDto>(
+                sql,
+                new { Pattern = pattern, Limit = cappedLimit });
+
+            return results.ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to search users with query {Query}", query);
+            throw;
+        }
     }
 }

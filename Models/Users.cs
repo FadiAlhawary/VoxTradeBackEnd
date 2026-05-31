@@ -78,5 +78,17 @@ namespace VoxTrade.Models
         public virtual Currency? PrimaryCurrency { get; set; }
 
         public virtual ContactInfo? ContactInfo { get; set; }
+
+        [Column("is_locked")]
+        public bool IsLocked { get; set; }
+
+        [Column("locked_at")]
+        public DateTime? LockedAt { get; set; }
+
+        [Column("locked_by")]
+        public int? LockedBy { get; set; }
+
+        [Column("lock_reason")]
+        public string? LockReason { get; set; }
     }
 }

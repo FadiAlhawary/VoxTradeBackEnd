@@ -18,5 +18,18 @@ namespace VoxTrade.Api.Data
         public DbSet<Lookup> LookUp { get; set; }
         public DbSet<Currency> Currencies { get; set; }
         public DbSet<UIThemes> UIThemes { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.Property(e => e.IsLocked).HasColumnName("is_locked");
+                entity.Property(e => e.LockedAt).HasColumnName("locked_at");
+                entity.Property(e => e.LockedBy).HasColumnName("locked_by");
+                entity.Property(e => e.LockReason).HasColumnName("lock_reason");
+            });
+        }
     }
 }
